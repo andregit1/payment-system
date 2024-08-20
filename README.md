@@ -103,21 +103,22 @@ npx prisma db seed
 
 API documentation is available at `http://localhost:3001/documentation` when the server is running.
 
+**Demo Video Link**: [swagger-authorized-demo](https://drive.google.com/file/d/13whWf2FzeiqASVtXUXD_9oI8Fw_yoRgG/view?usp=sharing)
+
 ### Accessing Authorized API Documentation
 
-To interact with the API documentation using authorization:
+1. **Open the Swagger UI**:
+   Navigate to `http://localhost:3001/documentation` in your browser to access the API documentation.
 
-1. **Sign Up and Sign In**:
-   Use the `POST /auth/signup` endpoint to create an account, then use `POST /auth/signin` to sign in and obtain an access token. The response will include a token required for authentication.
+2. **Sign Up and Sign In**:
 
-2. **Open the Swagger UI**:
-   Navigate to `http://localhost:3001/documentation` in your browser.
+   - Use the `POST /auth/signup` endpoint to create a new user account.
+   - Use the `POST /auth/signin` endpoint to sign in and obtain an access token from the response.
 
 3. **Authorize with the Token**:
-   - Copy the `st-access-token` value from the header of the `POST /auth/signin` response.
-   - Click the **Authorize** button (usually located in the top right corner of the Swagger UI).
-   - In the authorization dialog, paste the copied token value.
-   - Click **Authorize** to apply the token.
+   - Copy the `st-access-token` value from the response header of the `POST /auth/signin` request.
+   - Click the **Authorize** button in the Swagger UI (usually located in the top right corner).
+   - Paste the token value into the authorization dialog and click **Authorize**.
    - Click **Close** to exit the authorization dialog.
 
 Now, you can use the Swagger UI to test the endpoints with the provided authorization.
@@ -151,7 +152,15 @@ To run the application using Docker:
 
 ## Recurring Payment Cron Job
 
-A cron job is set up to handle recurring payments, currently scheduled to run at midnight every day. This job checks for any recurring payments that need to be processed and executes the required transactions accordingly.
+A cron job is set up to handle recurring payments, currently scheduled to run at midnight every day.
+
+```js
+// src/app.ts
+// Schedule recurring payments processing
+processRecurringPaymentsTask('0 0 * * *'); // Daily at midnight
+```
+
+This job checks for any recurring payments that need to be processed and executes the required transactions accordingly.
 
 ## Schema Definition
 
