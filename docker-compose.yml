@@ -1,0 +1,61 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:14.12
+    container_name: db
+    restart: always
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: 123123123
+      POSTGRES_DB: concreteai_dev
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    networks:
+      - app_network
+  supertokens:
+    image: supertokens/supertokens-postgresql:latest
+    container_name: supertokens
+    environment:
+      SUPERTOKENS_PORT: '3567'
+      POSTGRESQL_CONNECTION_URI: 'postgresql://root:123123123@db:5432/concreteai_dev?schema=public'
+    ports:
+      - '3567:3567'
+    depends_on:
+      - db
+    restart: unless-stopped
+    healthcheck:
+      test: >
+        bash -c 'exec 3<>/dev/tcp/127.0.0.1/3567 && echo -e "GET /hello HTTP/1.1\r\nhost: 127.0.0.1:3567\r\nConnection: close\r\n\r\n" >&3 && cat <&3 | grep "Hello"'
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app_network
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app
+    restart: always
+    depends_on:
+      - db
+      - supertokens
+    ports:
+      - '3001:3001'
+      - '9240:9240' # Node inspect
+      - '5555:5555' # prisma studio
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      - app_network
+volumes:
+  db_data:
+    driver: local
+networks:
+  app_network:
+    driver: bridge

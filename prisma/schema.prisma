@@ -1,0 +1,89 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  supertokensId String   @unique
+  username      String   @unique
+  email         String   @unique
+  password      String   
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  paymentAccounts PaymentAccount[]
+}
+
+model PaymentAccount {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  accountNumber String   @unique
+  accountType   String // debit, credit, loan
+  balance       Decimal  @default(0.0)
+  currency      String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user                      User               @relation(fields: [userId], references: [id])
+  paymentHistories          PaymentHistory[]
+  transactionsSent          Transaction[]      @relation(name: "sender")
+  transactionsReceived      Transaction[]      @relation(name: "recipient")
+  recurringPaymentsSent     RecurringPayment[] @relation(name: "sender")
+  recurringPaymentsReceived RecurringPayment[] @relation(name: "recipient")
+}
+
+model PaymentHistory {
+  id               Int      @id @default(autoincrement())
+  paymentAccountId Int
+  transactionId    Int
+  amount           Decimal  @default(0.0)
+  createdAt        DateTime @default(now())
+
+  paymentAccount PaymentAccount @relation(fields: [paymentAccountId], references: [id])
+  transaction    Transaction?   @relation(fields: [transactionId], references: [id])
+}
+
+model Transaction {
+  id                 Int      @id @default(autoincrement())
+  senderAccountId    Int
+  recipientAccountId Int
+  amount             Decimal  @default(0.0)
+  currency           String
+  timestamp          DateTime @default(now())
+  status             String
+  toAddress          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  senderAccount    PaymentAccount   @relation(name: "sender", fields: [senderAccountId], references: [id])
+  recipientAccount PaymentAccount   @relation(name: "recipient", fields: [recipientAccountId], references: [id])
+  paymentHistories PaymentHistory[]
+}
+
+model RecurringPayment {
+  id                 Int      @id @default(autoincrement())
+  senderAccountId    Int
+  recipientAccountId Int
+  amount             Decimal  @default(0.0)
+  currency           String
+  interval           String
+  nextPaymentDate    DateTime
+  status             String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  senderAccount    PaymentAccount @relation(name: "sender", fields: [senderAccountId], references: [id])
+  recipientAccount PaymentAccount @relation(name: "recipient", fields: [recipientAccountId], references: [id])
+}
