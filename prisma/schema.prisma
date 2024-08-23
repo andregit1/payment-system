@@ -23,7 +23,7 @@ model PaymentAccount {
   id                        Int                @id @default(autoincrement())
   userId                    Int
   accountNumber             String             @unique
-  accountType               String
+  accountType               PaymentAccountType
   balance                   Decimal            @default(0.0)
   createdAt                 DateTime           @default(now())
   updatedAt                 DateTime           @updatedAt
@@ -34,6 +34,12 @@ model PaymentAccount {
   recurringPaymentsSent     RecurringPayment[] @relation("sender")
   transactionsReceived      Transaction[]      @relation("recipient")
   transactionsSent          Transaction[]      @relation("sender")
+}
+
+enum PaymentAccountType {
+  DEBIT
+  CREDIT
+  LOAN
 }
 
 model PaymentHistory {
@@ -53,13 +59,19 @@ model Transaction {
   amount             Decimal           @default(0.0)
   currency           String
   timestamp          DateTime          @default(now())
-  status             String
+  status             TransactionStatus
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   remarks            String?
   paymentHistories   PaymentHistory[]
   recipientAccount   PaymentAccount?   @relation("recipient", fields: [recipientAccountId], references: [id])
   senderAccount      PaymentAccount    @relation("sender", fields: [senderAccountId], references: [id])
+}
+
+enum TransactionStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
 }
 
 model RecurringPayment {
