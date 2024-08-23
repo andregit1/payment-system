@@ -33,7 +33,7 @@ export default async function (fastify: FastifyInstance) {
 											currency: { type: 'string' },
 											timestamp: { type: 'string', format: 'date-time' },
 											status: { type: 'string' },
-											toAddress: { type: 'string', nullable: true }
+											remarks: { type: 'string', nullable: true }
 										}
 									}
 								},
@@ -48,7 +48,7 @@ export default async function (fastify: FastifyInstance) {
 											currency: { type: 'string' },
 											timestamp: { type: 'string', format: 'date-time' },
 											status: { type: 'string' },
-											toAddress: { type: 'string', nullable: true }
+											remarks: { type: 'string', nullable: true }
 										}
 									}
 								}

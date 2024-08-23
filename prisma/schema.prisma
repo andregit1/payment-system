@@ -19,7 +19,7 @@ model User {
   supertokensId String   @unique
   username      String   @unique
   email         String   @unique
-  password      String   
+  password      String
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -58,18 +58,24 @@ model PaymentHistory {
 model Transaction {
   id                 Int      @id @default(autoincrement())
   senderAccountId    Int
-  recipientAccountId Int
+  recipientAccountId Int?
   amount             Decimal  @default(0.0)
   currency           String
   timestamp          DateTime @default(now())
   status             String
-  toAddress          String?
+  remarks            String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   senderAccount    PaymentAccount   @relation(name: "sender", fields: [senderAccountId], references: [id])
-  recipientAccount PaymentAccount   @relation(name: "recipient", fields: [recipientAccountId], references: [id])
+  recipientAccount PaymentAccount?  @relation(name: "recipient", fields: [recipientAccountId], references: [id])
   paymentHistories PaymentHistory[]
+}
+
+enum TransactionStatus {
+  PROCESSING
+  COMPLETED
+  FAILED // due to an error or insufficient funds
 }
 
 model RecurringPayment {

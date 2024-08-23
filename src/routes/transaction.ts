@@ -14,11 +14,10 @@ export default async function (fastify: FastifyInstance) {
 				security: [{ bearerAuth: [] }],
 				body: {
 					type: 'object',
-					required: ['amount', 'currency', 'toAddress', 'senderAccountId', 'recipientAccountId'],
+					required: ['amount', 'remarks', 'senderAccountId', 'recipientAccountId'],
 					properties: {
 						amount: { type: 'number', minimum: 1 },
-						currency: { type: 'string', enum: ['USD', 'EUR', 'SGD'] },
-						toAddress: { type: 'string' },
+						remarks: { type: 'string' },
 						senderAccountId: { type: 'number' },
 						recipientAccountId: { type: 'number' }
 					}
@@ -56,12 +55,10 @@ export default async function (fastify: FastifyInstance) {
 				security: [{ bearerAuth: [] }],
 				body: {
 					type: 'object',
-					required: ['amount', 'currency', 'senderAccountId', 'recipientAccountId'],
+					required: ['amount', 'senderAccountId'],
 					properties: {
 						amount: { type: 'number', minimum: 1 },
-						currency: { type: 'string', enum: ['USD', 'EUR', 'SGD'] },
-						senderAccountId: { type: 'number' },
-						recipientAccountId: { type: 'number' }
+						senderAccountId: { type: 'number' }
 					}
 				},
 				response: {

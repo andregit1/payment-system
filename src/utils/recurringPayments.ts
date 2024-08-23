@@ -17,7 +17,7 @@ export async function processRecurringPayments() {
 				amount: payment.amount,
 				currency: payment.currency,
 				status: 'PROCESSING',
-				toAddress: '', // Add the appropriate value if required
+				remarks: '', // Add the appropriate value if required
 				timestamp: new Date()
 			}
 		});

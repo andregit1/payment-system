@@ -1,70 +1,111 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '../app';
 import { authenticateUser } from '../middleware';
-import { createPaymentHistories } from './paymentHistory';
 
-function processTransaction(transaction: any): Promise<any> {
+const transactionTimeout = parseInt(process.env.TRANSACTION_TIMEOUT_MS || '30000');
+
+async function verifySenderAccount(senderAccountId: number, amount: number) {
+	const senderAccount = await prisma.paymentAccount.findUnique({
+		where: { id: senderAccountId }
+	});
+
+	if (!senderAccount) {
+		throw new Error('Sender account not found');
+	}
+
+	if (senderAccount.balance.lessThan(amount)) {
+		throw new Error('Insufficient balance');
+	}
+
+	return senderAccount;
+}
+
+async function processTransaction(senderAccount: any, recipientAccount: any | null, transactionType: 'send' | 'withdraw'): Promise<any> {
 	return new Promise((resolve, reject) => {
-		console.log('Transaction processing started for:', transaction);
-		setTimeout(() => {
-			console.log('Transaction processed for:', transaction);
-			resolve(transaction);
-		}, 30000);
+		if (transactionType === 'send' && recipientAccount) {
+			console.log(`Transaction processing started for: senderAccountId - ${senderAccount.id} to recipientAccountId - ${recipientAccount.id}`);
+
+			setTimeout(() => {
+				console.log(`Transaction processed for: senderAccountId - ${senderAccount.id} to recipientAccountId - ${recipientAccount.id}`);
+				resolve({ message: 'Transaction completed' });
+			}, transactionTimeout);
+		} else if (transactionType === 'withdraw') {
+			console.log(`Withdrawal processing started for: ${senderAccount.id}`);
+
+			setTimeout(() => {
+				console.log(`Withdrawal processed for: ${senderAccount.id}`);
+				resolve({ message: 'Withdrawal completed' });
+			}, transactionTimeout);
+		} else {
+			reject(new Error('Invalid transaction type or missing recipient account'));
+		}
 	});
 }
 
 export async function sendTransactionHandler(request: FastifyRequest, reply: FastifyReply) {
 	await authenticateUser(request, reply);
-	const { amount, currency, toAddress, senderAccountId, recipientAccountId } = request.body as {
+
+	const { amount, remarks, senderAccountId, recipientAccountId } = request.body as {
 		amount: number;
-		currency: string;
-		toAddress: string;
+		remarks: string;
 		senderAccountId: number;
 		recipientAccountId: number;
 	};
 
 	try {
-		const transaction = await prisma.transaction.create({
+		await verifySenderAccount(senderAccountId, amount);
+
+		// Create the debit transaction for the sender
+		const senderTransaction = await prisma.transaction.create({
 			data: {
-				amount,
-				currency,
-				toAddress,
+				amount: -amount, // Debit
+				currency: 'SGD',
+				remarks,
 				senderAccountId,
 				recipientAccountId,
 				status: 'PROCESSING'
 			}
 		});
 
-		processTransaction(transaction)
-			.then(async (processedTransaction) => {
-				await prisma.transaction.update({
-					where: { id: transaction.id },
+		// Create the credit transaction for the recipient
+		const recipientTransaction = await prisma.transaction.create({
+			data: {
+				amount: amount, // Credit
+				currency: 'SGD',
+				remarks,
+				senderAccountId,
+				recipientAccountId,
+				status: 'PROCESSING'
+			}
+		});
+
+		processTransaction(senderTransaction, recipientTransaction, 'send')
+			.then(async () => {
+				// Update both transactions to 'COMPLETED'
+				await prisma.transaction.updateMany({
+					where: { id: { in: [senderTransaction.id, recipientTransaction.id] } },
 					data: { status: 'COMPLETED' }
 				});
 
-				// Deduct amount from sender's account
+				// Adjust balances
 				await prisma.paymentAccount.update({
 					where: { id: senderAccountId },
 					data: { balance: { decrement: amount } }
 				});
 
-				// Add amount to recipient's account
 				await prisma.paymentAccount.update({
 					where: { id: recipientAccountId },
 					data: { balance: { increment: amount } }
 				});
-
-				// create paymentHistory records
-				await createPaymentHistories(senderAccountId, recipientAccountId, transaction.id, amount);
 			})
-			.catch(async (error) => {
-				await prisma.transaction.update({
-					where: { id: transaction.id },
+			.catch(async () => {
+				await prisma.transaction.updateMany({
+					where: { id: { in: [senderTransaction.id, recipientTransaction.id] } },
 					data: { status: 'FAILED' }
 				});
 			});
 
-		return reply.send({ message: 'Transaction initiated', transactionId: transaction.id });
+		return reply.send({ message: 'Transaction initiated', transactionId: senderTransaction.id });
 	} catch (error) {
 		return reply.status(400).send({ message: 'Transaction initiation failed' });
 	}
@@ -72,60 +113,45 @@ export async function sendTransactionHandler(request: FastifyRequest, reply: Fas
 
 export async function withdrawTransactionHandler(request: FastifyRequest, reply: FastifyReply) {
 	await authenticateUser(request, reply);
-	const { amount, currency, senderAccountId, recipientAccountId } = request.body as {
+
+	const { amount, senderAccountId } = request.body as {
 		amount: number;
-		currency: string;
 		senderAccountId: number;
-		recipientAccountId: number;
 	};
 
 	try {
-		// Ensure the sender account exists
-		const senderAccount = await prisma.paymentAccount.findUnique({
-			where: { id: senderAccountId }
-		});
+		const senderAccount = await verifySenderAccount(senderAccountId, amount);
 
-		if (!senderAccount) {
-			return reply.status(400).send({ message: 'Sender account not found' });
+		if (senderAccount.accountType !== 'DEBIT') {
+			return reply.status(400).send({ message: 'Account type must be DEBIT for withdrawal' });
 		}
 
 		// Create the withdrawal transaction
 		const transaction = await prisma.transaction.create({
 			data: {
-				amount,
-				currency,
-				toAddress: 'SELF',
-				senderAccountId,
-				recipientAccountId,
+				amount: -amount, // Debit
+				currency: 'SGD',
+				remarks: 'WITHDRAWAL',
+				senderAccountId: senderAccount.id,
+				recipientAccountId: null, // No recipient
 				status: 'PROCESSING'
 			}
 		});
 
-		// Process the transaction
-		processTransaction(transaction)
-			.then(async (processedTransaction) => {
+		processTransaction(senderAccount, null, 'withdraw')
+			.then(async () => {
 				await prisma.transaction.update({
 					where: { id: transaction.id },
 					data: { status: 'COMPLETED' }
 				});
 
+				// Adjust balance
 				await prisma.paymentAccount.update({
 					where: { id: senderAccountId },
 					data: { balance: { decrement: amount } }
 				});
-
-				// Add amount to recipient's account if it's different from the sender
-				if (senderAccountId !== recipientAccountId) {
-					await prisma.paymentAccount.update({
-						where: { id: recipientAccountId },
-						data: { balance: { increment: amount } }
-					});
-				}
-
-				// create paymentHistory records
-				await createPaymentHistories(senderAccountId, recipientAccountId, transaction.id, amount);
 			})
-			.catch(async (error) => {
+			.catch(async () => {
 				await prisma.transaction.update({
 					where: { id: transaction.id },
 					data: { status: 'FAILED' }
