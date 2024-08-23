@@ -75,13 +75,13 @@ export default async function (fastify: FastifyInstance) {
 					properties: {
 						accountType: {
 							type: 'string',
-							enum: ['debit', 'credit', 'loan']
+							enum: ['DEBIT', 'CREDIT', 'LOAN']
 						},
 						initialBalance: {
 							type: 'number',
 							minimum: 10
 						},
-						currency: { type: 'string', enum: ['USD', 'EUR', 'SGD'] },
+						currency: { type: 'string' },
 						accountNumber: {
 							type: 'string',
 							minLength: 10,
@@ -133,6 +133,7 @@ export default async function (fastify: FastifyInstance) {
 								senderAccountId: { type: 'string' },
 								recipientAccountId: { type: 'string' },
 								timestamp: { type: 'string', format: 'date-time' },
+								status: { type: 'string' },
 								senderAccount: {
 									type: 'object',
 									properties: {

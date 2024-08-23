@@ -17,3 +17,20 @@ export function errorHandler(error: FastifyError, request: FastifyRequest, reply
 		message: 'An unexpected error occurred'
 	});
 }
+
+// Custom error for unauthorized access
+class UnauthorizedError extends Error {
+	constructor(message = 'Unauthorized') {
+		super(message);
+		this.name = 'UnauthorizedError';
+	}
+}
+
+// Error handler
+export function customErrorHandler(reply: FastifyReply, error: any, message: string | undefined) {
+	console.error('Error:', error);
+	if (error instanceof UnauthorizedError) {
+		return reply.status(401).send({ message: error.message });
+	}
+	return reply.status(500).send({ message: message ?? 'Internal Server Error' });
+}

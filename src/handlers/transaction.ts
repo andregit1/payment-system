@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '../app';
 import { authenticateUser } from '../middleware';
+import { TransactionStatus } from '@prisma/client';
 
 const transactionTimeout = parseInt(process.env.TRANSACTION_TIMEOUT_MS || '30000');
 
@@ -63,7 +64,7 @@ export async function sendTransactionHandler(request: FastifyRequest, reply: Fas
 				remarks,
 				senderAccountId,
 				recipientAccountId,
-				status: 'PROCESSING'
+				status: TransactionStatus.PROCESSING
 			}
 		});
 
@@ -75,7 +76,7 @@ export async function sendTransactionHandler(request: FastifyRequest, reply: Fas
 				remarks,
 				senderAccountId,
 				recipientAccountId,
-				status: 'PROCESSING'
+				status: TransactionStatus.PROCESSING
 			}
 		});
 
@@ -84,7 +85,7 @@ export async function sendTransactionHandler(request: FastifyRequest, reply: Fas
 				// Update both transactions to 'COMPLETED'
 				await prisma.transaction.updateMany({
 					where: { id: { in: [senderTransaction.id, recipientTransaction.id] } },
-					data: { status: 'COMPLETED' }
+					data: { status: TransactionStatus.COMPLETED }
 				});
 
 				// Adjust balances
@@ -101,7 +102,7 @@ export async function sendTransactionHandler(request: FastifyRequest, reply: Fas
 			.catch(async () => {
 				await prisma.transaction.updateMany({
 					where: { id: { in: [senderTransaction.id, recipientTransaction.id] } },
-					data: { status: 'FAILED' }
+					data: { status: TransactionStatus.FAILED }
 				});
 			});
 
@@ -134,7 +135,7 @@ export async function withdrawTransactionHandler(request: FastifyRequest, reply:
 				remarks: 'WITHDRAWAL',
 				senderAccountId: senderAccount.id,
 				recipientAccountId: null, // No recipient
-				status: 'PROCESSING'
+				status: TransactionStatus.PROCESSING
 			}
 		});
 
@@ -142,7 +143,7 @@ export async function withdrawTransactionHandler(request: FastifyRequest, reply:
 			.then(async () => {
 				await prisma.transaction.update({
 					where: { id: transaction.id },
-					data: { status: 'COMPLETED' }
+					data: { status: TransactionStatus.COMPLETED }
 				});
 
 				// Adjust balance
@@ -154,7 +155,7 @@ export async function withdrawTransactionHandler(request: FastifyRequest, reply:
 			.catch(async () => {
 				await prisma.transaction.update({
 					where: { id: transaction.id },
-					data: { status: 'FAILED' }
+					data: { status: TransactionStatus.FAILED }
 				});
 			});
 

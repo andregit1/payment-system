@@ -2,23 +2,8 @@ import { FastifyReply, FastifyRequest } from 'fastify';
 import { SessionRequest } from 'supertokens-node/framework/fastify';
 import { prisma } from '../app';
 import { authenticateUser } from '../middleware';
-
-// Custom error for unauthorized access
-class UnauthorizedError extends Error {
-	constructor(message = 'Unauthorized') {
-		super(message);
-		this.name = 'UnauthorizedError';
-	}
-}
-
-// Error handler
-function handleErrors(reply: FastifyReply, error: any) {
-	console.error('Error:', error);
-	if (error instanceof UnauthorizedError) {
-		return reply.status(401).send({ message: error.message });
-	}
-	return reply.status(500).send({ message: 'Internal Server Error' });
-}
+import { PaymentAccountType } from '@prisma/client';
+import { customErrorHandler } from '../utils/errorHandler';
 
 export async function getAccountsHandler(request: SessionRequest, reply: FastifyReply) {
 	try {
@@ -32,7 +17,7 @@ export async function getAccountsHandler(request: SessionRequest, reply: Fastify
 		});
 		return reply.send(accounts);
 	} catch (error) {
-		handleErrors(reply, error);
+		customErrorHandler(reply, error, 'Failed to retrieve accounts');
 	}
 }
 
@@ -40,13 +25,14 @@ export async function createAccountHandler(request: SessionRequest, reply: Fasti
 	try {
 		const user = await authenticateUser(request, reply);
 		const { accountType, initialBalance, currency, accountNumber } = request.body as {
-			accountType: string;
+			accountType: PaymentAccountType;
 			initialBalance: number;
 			currency: string;
 			accountNumber: string;
 		};
 
-		if (!['debit', 'credit', 'loan'].includes(accountType)) {
+		// Validate account type using the enum
+		if (!Object.values(PaymentAccountType).includes(accountType.toUpperCase() as PaymentAccountType)) {
 			return reply.status(400).send({ error: 'Invalid account type' });
 		}
 
@@ -70,7 +56,7 @@ export async function createAccountHandler(request: SessionRequest, reply: Fasti
 
 		return reply.send(account);
 	} catch (error) {
-		handleErrors(reply, error);
+		customErrorHandler(reply, error, 'Failed to create account');
 	}
 }
 
@@ -94,6 +80,6 @@ export async function getTransactionsHandler(request: any, reply: FastifyReply) 
 		});
 		return reply.send(transactions);
 	} catch (error) {
-		handleErrors(reply, error);
+		customErrorHandler(reply, error, 'Failed to retrieve transactions');
 	}
 }
