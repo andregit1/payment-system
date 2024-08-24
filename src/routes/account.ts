@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { superTokensMiddleware } from '../middleware';
-import { getAccountsHandler, createAccountHandler, getTransactionsHandler } from '../handlers/account';
+import { getAccountsHandler, createAccountHandler, getAccountHistoryHandler } from '../handlers/account';
 
 export default async function (fastify: FastifyInstance) {
 	fastify.get(
@@ -95,7 +95,7 @@ export default async function (fastify: FastifyInstance) {
 							default: 2.5
 						},
 						startDate: { type: 'string', format: 'date-time' },
-						endDate: { type: 'string', format: 'date-time' }
+						endDate: { type: 'string', format: 'date-time', default: '2030-01-01T12:00:00.000Z' }
 					}
 				},
 				response: {
@@ -118,17 +118,18 @@ export default async function (fastify: FastifyInstance) {
 	);
 
 	fastify.get(
-		'/accounts/:id/transactions',
+		'/accounts/:id/history',
 		{
 			schema: {
-				description: 'Get all transactions for a specific account',
+				description: 'Get all transaction history for a specific account',
 				tags: ['accounts'],
 				security: [{ bearerAuth: [] }],
 				params: {
 					type: 'object',
 					properties: {
 						id: { type: 'string' }
-					}
+					},
+					required: ['id']
 				},
 				response: {
 					200: {
@@ -148,9 +149,10 @@ export default async function (fastify: FastifyInstance) {
 									properties: {
 										id: { type: 'string' },
 										accountType: { type: 'string' },
+										accountNumber: { type: 'string' },
 										balance: { type: 'number' },
-										currency: { type: 'string' },
-										accountNumber: { type: 'string' }
+										availableAmount: { type: 'number' },
+										currency: { type: 'string' }
 									}
 								},
 								recipientAccount: {
@@ -158,9 +160,10 @@ export default async function (fastify: FastifyInstance) {
 									properties: {
 										id: { type: 'string' },
 										accountType: { type: 'string' },
+										accountNumber: { type: 'string' },
 										balance: { type: 'number' },
-										currency: { type: 'string' },
-										accountNumber: { type: 'string' }
+										availableAmount: { type: 'number' },
+										currency: { type: 'string' }
 									}
 								}
 							}
@@ -170,6 +173,6 @@ export default async function (fastify: FastifyInstance) {
 			},
 			preHandler: [superTokensMiddleware]
 		},
-		getTransactionsHandler
+		getAccountHistoryHandler
 	);
 }

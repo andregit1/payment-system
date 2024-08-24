@@ -90,7 +90,7 @@ export async function createAccountHandler(request: SessionRequest, reply: Fasti
 	}
 }
 
-export async function getTransactionsHandler(request: any, reply: FastifyReply) {
+export async function getAccountHistoryHandler(request: any, reply: FastifyReply) {
 	try {
 		const user = await authenticateUser(request as SessionRequest, reply);
 		const accountId = Number(request.params.id);
