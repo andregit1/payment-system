@@ -13,7 +13,7 @@ export default async function (fastify: FastifyInstance) {
 					type: 'object',
 					required: ['email', 'password', 'username'], // Added username
 					properties: {
-						username: { type: 'string' },
+						username: { type: 'string', default: 'userexmaple1' },
 						email: { type: 'string', format: 'email' },
 						password: { type: 'string', minLength: 8, default: '123123123' }
 					}

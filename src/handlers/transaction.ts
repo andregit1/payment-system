@@ -24,7 +24,7 @@ export async function sendTransactionHandler(request: FastifyRequest, reply: Fas
 		// Create the debit transaction for the sender
 		const transaction = await prisma.transaction.create({
 			data: {
-				amount: -amount, // Debit
+				amount: -amount,
 				currency: 'SGD',
 				remarks,
 				senderAccountId,
