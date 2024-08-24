@@ -2,15 +2,15 @@ import { PrismaClient } from '@prisma/client';
 import EmailPassword from 'supertokens-node/recipe/emailpassword';
 import Session from 'supertokens-node/recipe/session';
 import supertokens from 'supertokens-node';
+import { Decimal } from '@prisma/client/runtime/library';
 
 const prisma = new PrismaClient();
 
 async function main() {
-	await prisma.user.deleteMany();
-	await prisma.paymentAccount.deleteMany();
-	await prisma.transaction.deleteMany();
-	await prisma.paymentHistory.deleteMany();
 	await prisma.recurringPayment.deleteMany();
+	await prisma.transaction.deleteMany();
+	await prisma.paymentAccount.deleteMany();
+	await prisma.user.deleteMany();
 
 	// SuperTokens initialization
 	supertokens.init({
@@ -29,82 +29,82 @@ async function main() {
 	});
 
 	// Seed users
-	const user1Data = { email: 'user1@example.com', password: 'password1', username: 'user1' };
-	const user2Data = { email: 'user2@example.com', password: 'password2', username: 'user2' };
-	const user3Data = { email: 'user3@example.com', password: 'password3', username: 'user3' };
-	const user4Data = { email: 'user4@example.com', password: 'password4', username: 'user4' };
-	const user5Data = { email: 'user5@example.com', password: 'password5', username: 'user5' };
+	const userData = [
+		{ email: 'user1@example.com', password: 'password1', username: 'user1' },
+		{ email: 'user2@example.com', password: 'password2', username: 'user2' },
+		{ email: 'user3@example.com', password: 'password3', username: 'user3' },
+		{ email: 'user4@example.com', password: 'password4', username: 'user4' },
+		{ email: 'user5@example.com', password: 'password5', username: 'user5' }
+	];
 
-	const usersData = [user1Data, user2Data, user3Data, user4Data, user5Data];
+	const users: Array<{
+		id: number;
+		username: string;
+		email: string;
+		createdAt: Date;
+		updatedAt: Date;
+		supertokensId: string;
+		password: string;
+	}> = [];
 
-	for (const userData of usersData) {
-		const supertokensResponse = await EmailPassword.signUp('public', userData.email, userData.password);
-
+	for (const data of userData) {
+		const supertokensResponse = await EmailPassword.signUp('public', data.email, data.password);
 		if (supertokensResponse.status !== 'OK') {
-			console.error(`Failed to sign up ${userData.email}:`, supertokensResponse.status);
+			console.error(`Failed to sign up ${data.email}:`, supertokensResponse.status);
 			continue;
 		}
 
 		const user = await prisma.user.create({
 			data: {
-				email: userData.email,
-				username: userData.username,
-				password: userData.password,
+				email: data.email,
+				username: data.username,
+				password: data.password,
 				supertokensId: supertokensResponse.user.id
 			}
 		});
 
+		users.push(user);
 		console.log(`Created user ${user.email}`);
 	}
 
-	// Seed additional data
+	// Seed payment accounts
 	const paymentAccounts = await prisma.paymentAccount.createMany({
 		data: [
-			{ userId: 1, accountNumber: '1234567890', accountType: 'debit', balance: 1000.0, currency: 'USD' },
-			{ userId: 2, accountNumber: '2345678901', accountType: 'credit', balance: 5000.0, currency: 'USD' },
-			{ userId: 3, accountNumber: '3456789012', accountType: 'loan', balance: -3000.0, currency: 'USD' },
-			{ userId: 4, accountNumber: '4567890123', accountType: 'debit', balance: 2000.0, currency: 'USD' },
-			{ userId: 5, accountNumber: '5678901234', accountType: 'credit', balance: 7000.0, currency: 'USD' }
+			{ userId: users[0].id, accountNumber: '1234567890', accountType: 'DEBIT', balance: new Decimal(1000.0), currency: 'USD' },
+			{ userId: users[1].id, accountNumber: '2345678901', accountType: 'CREDIT', balance: new Decimal(5000.0), currency: 'USD' },
+			{ userId: users[2].id, accountNumber: '3456789012', accountType: 'LOAN', balance: new Decimal(-3000.0), currency: 'USD' },
+			{ userId: users[3].id, accountNumber: '4567890123', accountType: 'DEBIT', balance: new Decimal(2000.0), currency: 'USD' },
+			{ userId: users[4].id, accountNumber: '5678901234', accountType: 'CREDIT', balance: new Decimal(7000.0), currency: 'USD' }
 		]
 	});
 
 	console.log(`Created ${paymentAccounts.count} payment accounts`);
 
+	// Seed transactions
 	const transactions = await prisma.transaction.createMany({
 		data: [
-			{ senderAccountId: 1, recipientAccountId: 2, amount: 150.0, currency: 'USD', status: 'completed' },
-			{ senderAccountId: 2, recipientAccountId: 3, amount: 200.0, currency: 'USD', status: 'completed' },
-			{ senderAccountId: 3, recipientAccountId: 4, amount: 250.0, currency: 'USD', status: 'pending' },
-			{ senderAccountId: 4, recipientAccountId: 5, amount: 300.0, currency: 'USD', status: 'completed' },
-			{ senderAccountId: 5, recipientAccountId: 1, amount: 100.0, currency: 'USD', status: 'failed' }
+			{ senderAccountId: 1, recipientAccountId: 2, amount: new Decimal(150.0), currency: 'USD', status: 'COMPLETED', transactionType: 'TRANSFER' },
+			{ senderAccountId: 2, recipientAccountId: 3, amount: new Decimal(200.0), currency: 'USD', status: 'COMPLETED', transactionType: 'TRANSFER' },
+			{ senderAccountId: 3, recipientAccountId: 4, amount: new Decimal(250.0), currency: 'USD', status: 'PROCESSING', transactionType: 'TRANSFER' },
+			{ senderAccountId: 4, recipientAccountId: 5, amount: new Decimal(300.0), currency: 'USD', status: 'COMPLETED', transactionType: 'TRANSFER' },
+			{ senderAccountId: 5, recipientAccountId: 1, amount: new Decimal(100.0), currency: 'USD', status: 'FAILED', transactionType: 'TRANSFER' }
 		]
 	});
 
 	console.log(`Created ${transactions.count} transactions`);
 
+	// Seed recurring payments
 	const recurringPayments = await prisma.recurringPayment.createMany({
 		data: [
-			{ senderAccountId: 1, recipientAccountId: 2, amount: 50.0, currency: 'USD', interval: '1m', nextPaymentDate: new Date(), status: 'active' },
-			{ senderAccountId: 2, recipientAccountId: 3, amount: 75.0, currency: 'USD', interval: '1w', nextPaymentDate: new Date(), status: 'active' },
-			{ senderAccountId: 3, recipientAccountId: 4, amount: 100.0, currency: 'USD', interval: '2m', nextPaymentDate: new Date(), status: 'inactive' },
-			{ senderAccountId: 4, recipientAccountId: 5, amount: 125.0, currency: 'USD', interval: '2w', nextPaymentDate: new Date(), status: 'active' },
-			{ senderAccountId: 5, recipientAccountId: 1, amount: 150.0, currency: 'USD', interval: '1y', nextPaymentDate: new Date(), status: 'inactive' }
+			{ senderAccountId: 1, recipientAccountId: 2, amount: new Decimal(50.0), currency: 'USD', intervalValue: '1', intervalUnit: 'MONTH', nextPaymentDate: new Date(), status: 'ACTIVE' },
+			{ senderAccountId: 2, recipientAccountId: 3, amount: new Decimal(75.0), currency: 'USD', intervalValue: '1', intervalUnit: 'WEEK', nextPaymentDate: new Date(), status: 'ACTIVE' },
+			{ senderAccountId: 3, recipientAccountId: 4, amount: new Decimal(100.0), currency: 'USD', intervalValue: '2', intervalUnit: 'MONTH', nextPaymentDate: new Date(), status: 'PAUSED' },
+			{ senderAccountId: 4, recipientAccountId: 5, amount: new Decimal(125.0), currency: 'USD', intervalValue: '2', intervalUnit: 'WEEK', nextPaymentDate: new Date(), status: 'ACTIVE' },
+			{ senderAccountId: 5, recipientAccountId: 1, amount: new Decimal(150.0), currency: 'USD', intervalValue: '1', intervalUnit: 'YEAR', nextPaymentDate: new Date(), status: 'PAUSED' }
 		]
 	});
 
 	console.log(`Created ${recurringPayments.count} recurring payments`);
-
-	const paymentHistories = await prisma.paymentHistory.createMany({
-		data: [
-			{ paymentAccountId: 1, transactionId: 1, amount: 150.0 },
-			{ paymentAccountId: 2, transactionId: 2, amount: 200.0 },
-			{ paymentAccountId: 3, transactionId: 3, amount: 250.0 },
-			{ paymentAccountId: 4, transactionId: 4, amount: 300.0 },
-			{ paymentAccountId: 5, transactionId: 5, amount: 100.0 }
-		]
-	});
-
-	console.log(`Created ${paymentHistories.count} payment histories`);
 }
 
 main()
