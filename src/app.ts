@@ -88,7 +88,8 @@ fastify.register(autoload, {
 });
 
 // Schedule recurring payments processing
-processRecurringPaymentsTask('0 0 * * *'); // Daily at midnight
+const cronSchedule = process.env.RECURRING_PAYMENTS_CRON_SCHEDULE || '0 0 * * *'; // Daily at midnight
+processRecurringPaymentsTask(cronSchedule);
 
 // Start server
 const start = async () => {
