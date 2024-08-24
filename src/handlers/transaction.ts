@@ -1,114 +1,74 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '../app';
 import { authenticateUser } from '../middleware';
-import { TransactionStatus } from '@prisma/client';
+import { TransactionStatus, TransactionType } from '@prisma/client';
+import { customErrorHandler } from '../utils/errorHandler';
+import { verifyAccount } from '../services/accountService';
+import { transactionUpdateStatus, processTransaction } from '../services/transactionService';
 
 const transactionTimeout = parseInt(process.env.TRANSACTION_TIMEOUT_MS || '30000');
-
-async function verifySenderAccount(senderAccountId: number, amount: number) {
-	const senderAccount = await prisma.paymentAccount.findUnique({
-		where: { id: senderAccountId }
-	});
-
-	if (!senderAccount) {
-		throw new Error('Sender account not found');
-	}
-
-	if (senderAccount.balance.lessThan(amount)) {
-		throw new Error('Insufficient balance');
-	}
-
-	return senderAccount;
-}
-
-async function processTransaction(senderAccount: any, recipientAccount: any | null, transactionType: 'send' | 'withdraw'): Promise<any> {
-	return new Promise((resolve, reject) => {
-		if (transactionType === 'send' && recipientAccount) {
-			console.log(`Transaction processing started for: senderAccountId - ${senderAccount.id} to recipientAccountId - ${recipientAccount.id}`);
-
-			setTimeout(() => {
-				console.log(`Transaction processed for: senderAccountId - ${senderAccount.id} to recipientAccountId - ${recipientAccount.id}`);
-				resolve({ message: 'Transaction completed' });
-			}, transactionTimeout);
-		} else if (transactionType === 'withdraw') {
-			console.log(`Withdrawal processing started for: ${senderAccount.id}`);
-
-			setTimeout(() => {
-				console.log(`Withdrawal processed for: ${senderAccount.id}`);
-				resolve({ message: 'Withdrawal completed' });
-			}, transactionTimeout);
-		} else {
-			reject(new Error('Invalid transaction type or missing recipient account'));
-		}
-	});
-}
 
 export async function sendTransactionHandler(request: FastifyRequest, reply: FastifyReply) {
 	await authenticateUser(request, reply);
 
 	const { amount, remarks, senderAccountId, recipientAccountId } = request.body as {
 		amount: number;
-		remarks: string;
+		remarks?: string;
 		senderAccountId: number;
 		recipientAccountId: number;
 	};
 
 	try {
-		await verifySenderAccount(senderAccountId, amount);
-
+		const senderAccount = await verifyAccount(senderAccountId, amount);
+		const recipientAccount = await verifyAccount(recipientAccountId, amount);
 		// Create the debit transaction for the sender
-		const senderTransaction = await prisma.transaction.create({
+		const transaction = await prisma.transaction.create({
 			data: {
 				amount: -amount, // Debit
 				currency: 'SGD',
 				remarks,
 				senderAccountId,
 				recipientAccountId,
-				status: TransactionStatus.PROCESSING
+				status: TransactionStatus.PROCESSING,
+				transactionType: TransactionType.TRANSFER
 			}
 		});
 
-		// Create the credit transaction for the recipient
-		const recipientTransaction = await prisma.transaction.create({
-			data: {
-				amount: amount, // Credit
-				currency: 'SGD',
-				remarks,
-				senderAccountId,
-				recipientAccountId,
-				status: TransactionStatus.PROCESSING
-			}
-		});
-
-		processTransaction(senderTransaction, recipientTransaction, 'send')
+		// Process the transaction
+		await processTransaction(transaction, transactionTimeout)
 			.then(async () => {
-				// Update both transactions to 'COMPLETED'
-				await prisma.transaction.updateMany({
-					where: { id: { in: [senderTransaction.id, recipientTransaction.id] } },
-					data: { status: TransactionStatus.COMPLETED }
-				});
+				// Update the transaction to 'COMPLETED'
+				await transactionUpdateStatus(transaction.id, TransactionStatus.COMPLETED);
 
-				// Adjust balances
+				// Adjust balances based on account types
 				await prisma.paymentAccount.update({
 					where: { id: senderAccountId },
 					data: { balance: { decrement: amount } }
 				});
 
-				await prisma.paymentAccount.update({
-					where: { id: recipientAccountId },
-					data: { balance: { increment: amount } }
-				});
+				if (recipientAccount.accountType !== 'DEBIT') {
+					await prisma.paymentAccount.update({
+						where: { id: recipientAccountId },
+						data: { balance: { decrement: amount } }
+					});
+				} else {
+					await prisma.paymentAccount.update({
+						where: { id: recipientAccountId },
+						data: { balance: { increment: amount } }
+					});
+				}
 			})
 			.catch(async () => {
-				await prisma.transaction.updateMany({
-					where: { id: { in: [senderTransaction.id, recipientTransaction.id] } },
-					data: { status: TransactionStatus.FAILED }
-				});
+				// Handle transaction failure
+				await transactionUpdateStatus(transaction.id, TransactionStatus.FAILED);
 			});
 
-		return reply.send({ message: 'Transaction initiated', transactionId: senderTransaction.id });
+		return reply.send({
+			message: `Transaction from account ${senderAccount.accountNumber} to ${recipientAccount?.accountNumber}`,
+			transactionId: transaction.id
+		});
 	} catch (error) {
-		return reply.status(400).send({ message: 'Transaction initiation failed' });
+		customErrorHandler(reply, error, 'Transaction initiation failed');
 	}
 }
 
@@ -121,7 +81,7 @@ export async function withdrawTransactionHandler(request: FastifyRequest, reply:
 	};
 
 	try {
-		const senderAccount = await verifySenderAccount(senderAccountId, amount);
+		const senderAccount = await verifyAccount(senderAccountId, amount);
 
 		if (senderAccount.accountType !== 'DEBIT') {
 			return reply.status(400).send({ message: 'Account type must be DEBIT for withdrawal' });
@@ -135,32 +95,30 @@ export async function withdrawTransactionHandler(request: FastifyRequest, reply:
 				remarks: 'WITHDRAWAL',
 				senderAccountId: senderAccount.id,
 				recipientAccountId: null, // No recipient
-				status: TransactionStatus.PROCESSING
+				status: TransactionStatus.PROCESSING,
+				transactionType: TransactionType.WITHDRAWAL
 			}
 		});
 
-		processTransaction(senderAccount, null, 'withdraw')
+		processTransaction(transaction, transactionTimeout)
 			.then(async () => {
-				await prisma.transaction.update({
-					where: { id: transaction.id },
-					data: { status: TransactionStatus.COMPLETED }
-				});
+				await transactionUpdateStatus(transaction.id, TransactionStatus.COMPLETED);
 
-				// Adjust balance
+				// Adjust balance for DEBIT
 				await prisma.paymentAccount.update({
 					where: { id: senderAccountId },
 					data: { balance: { decrement: amount } }
 				});
 			})
 			.catch(async () => {
-				await prisma.transaction.update({
-					where: { id: transaction.id },
-					data: { status: TransactionStatus.FAILED }
-				});
+				await transactionUpdateStatus(transaction.id, TransactionStatus.FAILED);
 			});
 
-		return reply.send({ message: 'Withdrawal initiated', transactionId: transaction.id });
+		return reply.send({
+			message: `Withdrawal for account ${senderAccount.accountNumber}`,
+			transactionId: transaction.id
+		});
 	} catch (error) {
-		return reply.status(400).send({ message: 'Withdrawal initiation failed' });
+		customErrorHandler(reply, error, 'Withdrawal initiation failed');
 	}
 }

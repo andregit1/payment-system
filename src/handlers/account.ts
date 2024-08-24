@@ -2,7 +2,7 @@ import { FastifyReply, FastifyRequest } from 'fastify';
 import { SessionRequest } from 'supertokens-node/framework/fastify';
 import { prisma } from '../app';
 import { authenticateUser } from '../middleware';
-import { PaymentAccountType } from '@prisma/client';
+import { Prisma, PaymentAccountType } from '@prisma/client';
 import { customErrorHandler } from '../utils/errorHandler';
 
 export async function getAccountsHandler(request: SessionRequest, reply: FastifyReply) {
@@ -24,34 +24,64 @@ export async function getAccountsHandler(request: SessionRequest, reply: Fastify
 export async function createAccountHandler(request: SessionRequest, reply: FastifyReply) {
 	try {
 		const user = await authenticateUser(request, reply);
-		const { accountType, initialBalance, currency, accountNumber } = request.body as {
+
+		const { accountType, accountNumber, initialBalance, availableAmount, interestRate, startDate, endDate } = request.body as {
 			accountType: PaymentAccountType;
-			initialBalance: number;
-			currency: string;
 			accountNumber: string;
+			initialBalance: number;
+			availableAmount?: number; // for non-DEBIT accounts
+			interestRate?: number; // for non-DEBIT accounts
+			startDate?: Date;
+			endDate?: Date;
 		};
 
+		// Convert accountType to uppercase to avoid case-sensitivity issues
+		const normalizedAccountType = accountType.toUpperCase() as PaymentAccountType;
+
 		// Validate account type using the enum
-		if (!Object.values(PaymentAccountType).includes(accountType.toUpperCase() as PaymentAccountType)) {
+		if (!Object.values(PaymentAccountType).includes(normalizedAccountType)) {
 			return reply.status(400).send({ error: 'Invalid account type' });
 		}
 
+		// Validate initial balance
 		if (initialBalance < 10) {
 			return reply.status(400).send({ error: 'Initial balance must be at least 10' });
 		}
 
+		// Validate account number length
 		if (accountNumber.length < 10) {
 			return reply.status(400).send({ error: 'Account number must be at least 10 digits long' });
 		}
 
-		const account = await prisma.paymentAccount.create({
-			data: {
-				accountType,
-				balance: initialBalance,
-				currency,
-				accountNumber,
-				userId: user.id
+		const accountData: Prisma.PaymentAccountCreateInput = {
+			accountType: normalizedAccountType,
+			accountNumber,
+			balance: new Prisma.Decimal(initialBalance),
+			currency: 'SGD',
+			user: { connect: { id: user.id } }
+		};
+
+		// Add interestRate if applicable
+		if (normalizedAccountType !== 'DEBIT' && interestRate !== undefined) {
+			accountData.interestRate = new Prisma.Decimal(interestRate);
+		}
+
+		// Add availableAmount, startDate, and endDate if applicable
+		if (normalizedAccountType !== 'DEBIT' && availableAmount !== undefined) {
+			accountData.availableAmount = new Prisma.Decimal(availableAmount);
+
+			// Validate and set startDate and endDate
+			if (startDate) {
+				accountData.startDate = startDate;
 			}
+
+			if (endDate) {
+				accountData.endDate = endDate;
+			}
+		}
+
+		const account = await prisma.paymentAccount.create({
+			data: accountData
 		});
 
 		return reply.send(account);

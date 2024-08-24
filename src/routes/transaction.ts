@@ -14,7 +14,7 @@ export default async function (fastify: FastifyInstance) {
 				security: [{ bearerAuth: [] }],
 				body: {
 					type: 'object',
-					required: ['amount', 'remarks', 'senderAccountId', 'recipientAccountId'],
+					required: ['amount', 'senderAccountId', 'recipientAccountId'],
 					properties: {
 						amount: { type: 'number', minimum: 1 },
 						remarks: { type: 'string' },

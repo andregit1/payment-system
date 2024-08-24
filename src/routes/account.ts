@@ -77,16 +77,25 @@ export default async function (fastify: FastifyInstance) {
 							type: 'string',
 							enum: ['DEBIT', 'CREDIT', 'LOAN']
 						},
-						initialBalance: {
-							type: 'number',
-							minimum: 10
-						},
-						currency: { type: 'string' },
 						accountNumber: {
 							type: 'string',
 							minLength: 10,
 							default: '1234567890'
-						}
+						},
+						initialBalance: {
+							type: 'number',
+							minimum: 10
+						},
+						availableAmount: {
+							type: 'number',
+							minimum: 10
+						},
+						interestRate: {
+							type: 'number', // Corrected the typo
+							default: 2.5
+						},
+						startDate: { type: 'string', format: 'date-time' },
+						endDate: { type: 'string', format: 'date-time' }
 					}
 				},
 				response: {

@@ -20,19 +20,32 @@ model User {
 }
 
 model PaymentAccount {
-  id                        Int                @id @default(autoincrement())
-  userId                    Int
-  accountNumber             String             @unique
-  accountType               PaymentAccountType
-  balance                   Decimal            @default(0.0)
-  createdAt                 DateTime           @default(now())
-  updatedAt                 DateTime           @updatedAt
-  currency                  String
+  id              Int                  @id @default(autoincrement())
+  userId          Int
+  accountType     PaymentAccountType
+  accountNumber   String               @unique
+  balance         Decimal              @default(0.0)
+  availableAmount Decimal?
+  interestRate    Decimal?             @default(0.0)
+  startDate       DateTime?
+  endDate         DateTime?
+  currency        String
+  status          PaymentAccountStatus @default(APPROVED)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
   user                      User               @relation(fields: [userId], references: [id])
   recurringPaymentsReceived RecurringPayment[] @relation("recipient")
   recurringPaymentsSent     RecurringPayment[] @relation("sender")
   transactionsReceived      Transaction[]      @relation("recipient")
   transactionsSent          Transaction[]      @relation("sender")
+}
+
+enum PaymentAccountStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  UNDER_REVIEW // is being reviewed by additional parties or departments.
 }
 
 enum PaymentAccountType {
@@ -47,13 +60,15 @@ model Transaction {
   recipientAccountId Int?
   amount             Decimal           @default(0.0)
   currency           String
-  timestamp          DateTime          @default(now())
   status             TransactionStatus
+  transactionType    TransactionType
+  remarks            String?
+  timestamp          DateTime          @default(now())
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
-  remarks            String?
-  recipientAccount   PaymentAccount?   @relation("recipient", fields: [recipientAccountId], references: [id])
-  senderAccount      PaymentAccount    @relation("sender", fields: [senderAccountId], references: [id])
+
+  recipientAccount PaymentAccount? @relation("recipient", fields: [recipientAccountId], references: [id])
+  senderAccount    PaymentAccount  @relation("sender", fields: [senderAccountId], references: [id])
 }
 
 enum TransactionStatus {
@@ -62,19 +77,42 @@ enum TransactionStatus {
   FAILED
 }
 
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  TRANSFER
+  PAYMENT
+}
+
 model RecurringPayment {
-  id                 Int            @id @default(autoincrement())
+  id                 Int                    @id @default(autoincrement())
   senderAccountId    Int
   recipientAccountId Int
-  amount             Decimal        @default(0.0)
+  amount             Decimal                @default(0.0)
   currency           String
-  interval           String
+  intervalValue      String
+  intervalUnit       DurationUnit
   nextPaymentDate    DateTime
-  status             String
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-  recipientAccount   PaymentAccount @relation("recipient", fields: [recipientAccountId], references: [id])
-  senderAccount      PaymentAccount @relation("sender", fields: [senderAccountId], references: [id])
+  status             RecurringPaymentStatus
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  recipientAccount   PaymentAccount         @relation("recipient", fields: [recipientAccountId], references: [id])
+  senderAccount      PaymentAccount         @relation("sender", fields: [senderAccountId], references: [id])
+}
+
+enum DurationUnit {
+  DAY
+  WEEK
+  MONTH
+  YEAR
+}
+
+enum RecurringPaymentStatus {
+  ACTIVE // is active and scheduled to be processed.
+  PAUSED // temporarily paused due to insufficient funds
+  DISABLED // has been disabled by the user
+  COMPLETED // has reached its end date or has been completed (paid off)
+  CANCELED // has been canceled due to a system error
 }
 
 model all_auth_recipe_users {
