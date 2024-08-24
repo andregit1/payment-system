@@ -14,17 +14,13 @@ This is a backend service for managing user accounts and transactions, including
 
   - `GET /api/accounts` - View all user's account details and balances
   - `POST /api/accounts` - Create new user's account
-  - `GET /api/accounts/{id}/transactions` - View specific account transaction details
+  - `GET /api/accounts/{id}/history` - View specific account transaction history
 
 - **Transaction**:
 
   - `POST /api/send` - Send funds from one account to another
   - `POST /api/withdraw` - Withdraw funds from an account
-  - Note: Transactions (send and withdraw) are processed 30 seconds after the endpoint is hit.
-
-- **History**:
-
-  - `GET /api/payment-history{paymentAccountId}` - Retrieve transaction history, including payment accounts and their histories
+  - Note: Transactions (send and withdraw) are processed x seconds after the endpoint is hit. The value of 'x' can be adjusted in the '.env' file.
 
 - **Recurring Payments**:
 
