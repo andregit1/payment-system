@@ -171,19 +171,13 @@ Here's an overview of the data relations:
 
   - Each `PaymentAccount` belongs to a `User`.
   - It has a unique `accountNumber`, `accountType`, and `balance`.
-  - A `PaymentAccount` can have multiple `PaymentHistories`, `Transaction` records as the sender or recipient, and `RecurringPayment` records as the sender or recipient.
+  - A `PaymentAccount` can have multiple, `Transaction` records as the sender or recipient, and `RecurringPayment` records as the sender or recipient.
   - The `PaymentAccount` entity represents accounts in the payload, distinct from `userId`, as it holds balance information and related data.
-
-- **PaymentHistory**:
-
-  - Each `PaymentHistory` is associated with a `PaymentAccount` and an optional `Transaction`.
-  - It records the amount and creation time of a payment.
 
 - **Transaction**:
 
   - Each `Transaction` involves a `senderAccount` and `recipientAccount`.
   - It records the amount, currency, timestamp, status, and optional address.
-  - A `Transaction` can have multiple `PaymentHistories`.
 
 - **RecurringPayment**:
   - Each `RecurringPayment` involves a `senderAccount` and `recipientAccount`.
