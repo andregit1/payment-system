@@ -13,15 +13,19 @@ export default async function (fastify: FastifyInstance) {
 				security: [{ bearerAuth: [] }],
 				body: {
 					type: 'object',
-					required: ['recipientAccountId', 'amount', 'currency', 'interval', 'nextPaymentDate'],
+					required: ['senderAccountId', 'recipientAccountId', 'amount', 'intervalValue', 'intervalUnit', 'nextPaymentDate'],
 					properties: {
 						senderAccountId: { type: 'integer' },
 						recipientAccountId: { type: 'integer' },
 						amount: { type: 'number', minimum: 1 },
-						currency: { type: 'string', enum: ['USD', 'EUR', 'SGD'] },
-						interval: { type: 'string', default: '1w' },
+						currency: { type: 'string', default: 'SGD' },
+						intervalValue: { type: 'string', default: 1 },
+						intervalUnit: { type: 'string', enum: ['DAY', 'WEEK', 'MONTH', 'YEAR'] },
 						nextPaymentDate: { type: 'string', format: 'date-time' },
-						status: { type: 'string', enum: ['ACTIVE', 'INACTIVE'] }
+						status: {
+							type: 'string',
+							enum: ['ACTIVE', 'PAUSED', 'DISABLED', 'COMPLETED', 'CANCELED']
+						}
 					}
 				},
 				response: {
@@ -38,7 +42,8 @@ export default async function (fastify: FastifyInstance) {
 									recipientAccountId: { type: 'integer' },
 									amount: { type: 'number' },
 									currency: { type: 'string' },
-									interval: { type: 'string' },
+									intervalValue: { type: 'string' },
+									intervalUnit: { type: 'string' },
 									nextPaymentDate: { type: 'string', format: 'date-time' },
 									status: { type: 'string' },
 									createdAt: { type: 'string', format: 'date-time' },
@@ -71,16 +76,20 @@ export default async function (fastify: FastifyInstance) {
 				security: [{ bearerAuth: [] }],
 				body: {
 					type: 'object',
-					required: ['recipientAccountId', 'amount', 'currency', 'interval', 'nextPaymentDate'],
 					properties: {
 						senderAccountId: { type: 'integer' },
 						recipientAccountId: { type: 'integer' },
 						amount: { type: 'number', minimum: 1 },
-						currency: { type: 'string', enum: ['USD', 'EUR', 'SGD'] },
-						interval: { type: 'string', default: '1w' },
+						currency: { type: 'string', default: 'SGD' },
+						intervalValue: { type: 'string', default: 1 },
+						intervalUnit: { type: 'string', enum: ['DAY', 'WEEK', 'MONTH', 'YEAR'] },
 						nextPaymentDate: { type: 'string', format: 'date-time' },
-						status: { type: 'string', enum: ['ACTIVE', 'INACTIVE'] }
-					}
+						status: {
+							type: 'string',
+							enum: ['ACTIVE', 'PAUSED', 'DISABLED', 'COMPLETED', 'CANCELED']
+						}
+					},
+					required: ['senderAccountId', 'recipientAccountId', 'amount', 'intervalValue', 'intervalUnit', 'nextPaymentDate']
 				},
 				params: {
 					type: 'object',
@@ -103,7 +112,8 @@ export default async function (fastify: FastifyInstance) {
 									recipientAccountId: { type: 'integer' },
 									amount: { type: 'number' },
 									currency: { type: 'string' },
-									interval: { type: 'string' },
+									intervalValue: { type: 'string' },
+									intervalUnit: { type: 'string' },
 									nextPaymentDate: { type: 'string', format: 'date-time' },
 									status: { type: 'string' },
 									createdAt: { type: 'string', format: 'date-time' },

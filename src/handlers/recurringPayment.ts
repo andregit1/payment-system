@@ -1,19 +1,19 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '../app';
 import { authenticateUser } from '../middleware';
+import { RecurringPaymentStatus, DurationUnit } from '@prisma/client';
 
 // Handler for creating a new recurring payment
 export async function createRecurringPayment(request: FastifyRequest, reply: FastifyReply) {
 	await authenticateUser(request, reply);
 
-	const { senderAccountId, recipientAccountId, amount, currency, interval, nextPaymentDate, status } = request.body as {
+	const { senderAccountId, recipientAccountId, amount, intervalValue, intervalUnit, nextPaymentDate } = request.body as {
 		senderAccountId: number;
 		recipientAccountId: number;
 		amount: number;
-		currency: string;
-		interval: string;
+		intervalValue: string;
+		intervalUnit: DurationUnit;
 		nextPaymentDate: string;
-		status: string;
 	};
 
 	// Validate amount
@@ -40,10 +40,11 @@ export async function createRecurringPayment(request: FastifyRequest, reply: Fas
 				senderAccountId,
 				recipientAccountId,
 				amount,
-				currency,
-				interval,
+				currency: 'SGD',
+				intervalValue,
+				intervalUnit,
 				nextPaymentDate: new Date(nextPaymentDate),
-				status
+				status: RecurringPaymentStatus.ACTIVE
 			}
 		});
 
@@ -62,14 +63,14 @@ export async function updateRecurringPayment(request: FastifyRequest, reply: Fas
 	await authenticateUser(request, reply);
 
 	const { id } = request.params as { id: number };
-	const { senderAccountId, recipientAccountId, amount, currency, interval, nextPaymentDate, status } = request.body as {
+	const { senderAccountId, recipientAccountId, amount, intervalValue, intervalUnit, nextPaymentDate, status } = request.body as {
 		senderAccountId?: number;
 		recipientAccountId?: number;
 		amount?: number;
-		currency?: string;
-		interval?: string;
+		intervalValue?: string;
+		intervalUnit?: DurationUnit;
 		nextPaymentDate?: string;
-		status?: string;
+		status?: RecurringPaymentStatus;
 	};
 
 	if (amount !== undefined && amount <= 0) {
@@ -105,8 +106,9 @@ export async function updateRecurringPayment(request: FastifyRequest, reply: Fas
 				senderAccountId,
 				recipientAccountId,
 				amount,
-				currency,
-				interval,
+				currency: 'SGD',
+				intervalValue,
+				intervalUnit,
 				nextPaymentDate: nextPaymentDate ? new Date(nextPaymentDate) : undefined,
 				status
 			}
